@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 import logging
 import subprocess
 import tempfile
+from urllib.parse import unquote, urlparse
 
 # Setup logging
 logger = logging.getLogger("uvicorn.error")
@@ -65,12 +66,16 @@ async def extract_pptx(request: Request):
         document_url = data.get("documentUrl")
         logger.info(f"PPTX URL received: {document_url}")
 
-        if not document_url or not urlparse(document_url).path.lower().endswith(".pptx"):
+        if not document_url:
+            return PlainTextResponse("Missing documentUrl", status_code=400)
+
+        parsed_path = unquote(urlparse(document_url).path).lower()
+        if not parsed_path.endswith(".pptx"):
             return PlainTextResponse("Only .pptx files are supported", status_code=400)
 
         response = requests.get(document_url, headers={"User-Agent": "Mozilla/5.0"})
         if response.status_code != 200:
-            return PlainTextResponse("Failed to download file", status_code=400)
+            return PlainTextResponse(f"Failed to download file: {response.status_code}", status_code=400)
 
         content = extract_text_and_ocr_from_pptx(response.content)
         return PlainTextResponse(content, status_code=200)
