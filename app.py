@@ -112,33 +112,35 @@ async def extract_webpage_text(request: Request):
 async def execute_python(request: Request):
     try:
         data = await request.json()
-        python_code = data.get("code")
+        python_code = data.get("pythonCode")
+
         if not python_code:
-            return JSONResponse({"error": "Missing 'code' in request body"}, status_code=400)
+            return JSONResponse({"error": "Missing 'pythonCode' in request body"}, status_code=400)
 
-        # Save to temporary file
-        tmp_file_path = os.path.join(tempfile.gettempdir(), f"{uuid.uuid4()}.py")
-        with open(tmp_file_path, "w", encoding="utf-8") as f:
-            f.write(python_code)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".py") as tmp_file:
+            tmp_file.write(python_code.encode('utf-8'))
+            tmp_file_path = tmp_file.name
 
-        # Run python code with timeout
-        result = subprocess.run(
-            ["python", tmp_file_path],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
+        try:
+            result = subprocess.run(
+                ["python", tmp_file_path],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
 
-        os.remove(tmp_file_path)
+            if result.stderr:
+                return JSONResponse({"error": result.stderr.strip()}, status_code=500)
 
-        if result.stderr:
-            logger.error(f"Python stderr: {result.stderr}")
-        output = result.stdout.strip() or "Python script did not return any output"
+            output = result.stdout.strip() or "Python script did not return any output"
+            return JSONResponse({"answers": [output]}, status_code=200)
 
-        return JSONResponse({"answers": [output]})
+        finally:
+            if os.path.exists(tmp_file_path):
+                os.remove(tmp_file_path)
 
     except subprocess.TimeoutExpired:
-        return JSONResponse({"answers": ["Script execution timed out"]}, status_code=408)
+        return JSONResponse({"error": "Script execution timed out"}, status_code=500)
     except Exception as e:
         logger.exception("Python execution error:")
-        return JSONResponse({"answers": [f"Script execution failed: {str(e)}"]}, status_code=500)
+        return JSONResponse({"error": str(e)}, status_code=500)
