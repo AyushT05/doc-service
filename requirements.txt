@@ -1,6 +1,7 @@
 fastapi
-uvicorn
+uvicorn[standard]
 python-pptx
-pytesseract
 pillow
-python-multipart
+pytesseract
+requests
+beautifulsoup4
