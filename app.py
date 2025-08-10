@@ -16,7 +16,7 @@ from urllib.parse import unquote, urlparse
 logger = logging.getLogger("uvicorn.error")
 
 # Configure Tesseract for Windows (optional, skip on Linux/Colab)
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
 
 app = FastAPI()
 
